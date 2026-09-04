@@ -1,1 +1,379 @@
-HTML
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bytes File Editor</title>
+<style>
+*{box-sizing:border-box}
+body{
+  margin:0;font-family:Arial,sans-serif;background:#0f1115;color:#f5f5f5;
+  min-height:100vh;padding:20px;
+}
+.container{max-width:700px;margin:auto}
+.card{
+  background:#181b22;border:1px solid #2a2f3a;border-radius:18px;
+  padding:22px;margin-bottom:18px;box-shadow:0 8px 30px #0005
+}
+h1{margin:0 0 8px;font-size:25px}
+h2{font-size:19px;margin:0 0 15px}
+.muted{color:#9da5b4;font-size:14px}
+.drop{
+  border:2px dashed #555d6b;border-radius:14px;padding:30px 15px;
+  text-align:center;cursor:pointer;transition:.2s
+}
+.drop:hover{border-color:#8d96a5;background:#20242c}
+input[type=file]{display:none}
+.file-info{margin-top:12px;color:#8ee6a1;font-size:14px}
+.grid{display:grid;grid-template-columns:1fr;gap:12px}
+label{font-size:14px;color:#c9ced8}
+select,input[type=number]{
+  width:100%;padding:13px;border-radius:10px;border:1px solid #363c48;
+  background:#101319;color:#fff;font-size:15px;outline:none
+}
+button{
+  width:100%;padding:14px;border:0;border-radius:11px;
+  background:#fff;color:#111;font-size:16px;font-weight:700;cursor:pointer;
+  margin-top:15px
+}
+button:disabled{opacity:.45;cursor:not-allowed}
+.status{
+  margin-top:14px;padding:12px;border-radius:10px;font-size:14px;
+  line-height:1.5
+}
+.status.success{background:#15351f;color:#9bf0ae}
+.status.error{background:#3a171b;color:#ff9ca6}
+.status.info{background:#17283a;color:#a9d5ff}
+.hidden{display:none!important}
+.note{
+  font-size:13px;color:#aab1bd;line-height:1.5;margin-top:12px
+}
+</style>
+</head>
+
+<body>
+<div class="container">
+
+  <div class="card">
+    <h1>Bytes File Editor</h1>
+    <div class="muted">Upload your .bytes file and change Teams, Players and Rounds.</div>
+  </div>
+
+  <div class="card">
+    <h2>1. Upload File</h2>
+
+    <label class="drop" for="team-file" id="team-drop">
+      <strong>Tap to choose .bytes file</strong><br>
+      <span class="muted">You can upload any supported .bytes file</span>
+    </label>
+
+    <input type="file" id="team-file" accept=".bytes,application/octet-stream">
+
+    <div id="team-file-info" class="file-info hidden"></div>
+    <div id="team-status" class="status info hidden"></div>
+  </div>
+
+  <div class="card hidden" id="team-settings">
+    <h2>2. Settings</h2>
+
+    <div class="grid">
+      <div>
+        <label for="team-count">Teams</label>
+        <select id="team-count">
+          <option value="">— Select —</option>
+          <option value="1">1</option>
+          <option value="2">2</option>
+          <option value="3">3</option>
+          <option value="4">4</option>
+          <option value="5">5</option>
+          <option value="6">6</option>
+          <option value="7">7</option>
+          <option value="8">8</option>
+          <option value="9">9</option>
+          <option value="10">10</option>
+          <option value="11">11</option>
+          <option value="12">12</option>
+          <option value="13">13</option>
+          <option value="14">14</option>
+          <option value="15">15</option>
+          <option value="16">16</option>
+        </select>
+      </div>
+
+      <div>
+        <label for="player-count">Players</label>
+        <select id="player-count">
+          <option value="">— Select —</option>
+          <option value="1">1</option>
+          <option value="2">2</option>
+          <option value="3">3</option>
+          <option value="4">4</option>
+          <option value="5">5</option>
+          <option value="6">6</option>
+          <option value="7">7</option>
+          <option value="8">8</option>
+          <option value="9">9</option>
+          <option value="10">10</option>
+          <option value="11">11</option>
+          <option value="12">12</option>
+          <option value="13">13</option>
+          <option value="14">14</option>
+          <option value="15">15</option>
+          <option value="16">16</option>
+        </select>
+      </div>
+
+      <div>
+        <label for="round-count">Rounds</label>
+        <select id="round-count">
+          <option value="">— Select —</option>
+          <option value="1">1</option>
+          <option value="2">2</option>
+          <option value="3">3</option>
+          <option value="4">4</option>
+          <option value="5">5</option>
+          <option value="6">6</option>
+          <option value="7">7</option>
+          <option value="8">8</option>
+          <option value="9">9</option>
+          <option value="10">10</option>
+          <option value="11">11</option>
+          <option value="12">12</option>
+          <option value="13">13</option>
+          <option value="14">14</option>
+          <option value="15">15</option>
+          <option value="16">16</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="note">
+      Slot is not shown or changed. Whatever Slot is already present in the uploaded file remains unchanged.
+    </div>
+
+    <button id="apply-btn" type="button">Apply Changes & Download</button>
+
+    <div id="result-status" class="status hidden"></div>
+  </div>
+
+</div>
+
+<script>
+'use strict';
+
+let teamFileData = null;
+let teamFileName = '';
+
+const TEAM_PATTERN   = [0x09, 0x08, 0x06, 0x18];
+const PLAYER_PATTERN = [0x09, 0x08, 0x07, 0x18];
+const ROUND_PATTERN  = [0x09, 0x08, 0x08, 0x18];
+
+const fileInput = document.getElementById('team-file');
+const dropZone = document.getElementById('team-drop');
+const settings = document.getElementById('team-settings');
+const fileInfo = document.getElementById('team-file-info');
+const teamStatus = document.getElementById('team-status');
+const resultStatus = document.getElementById('result-status');
+const applyBtn = document.getElementById('apply-btn');
+
+function findPattern(data, pattern) {
+  outer:
+  for (let i = 0; i <= data.length - pattern.length; i++) {
+    for (let j = 0; j < pattern.length; j++) {
+      if (data[i + j] !== pattern[j]) continue outer;
+    }
+    return i;
+  }
+  return -1;
+}
+
+function showStatus(el, message, type) {
+  el.innerHTML = message;
+  el.className = 'status ' + type;
+}
+
+function setSelectIfExists(selectEl, byteVal) {
+  if (!selectEl) return;
+  const value = String(byteVal);
+
+  for (let i = 0; i < selectEl.options.length; i++) {
+    if (selectEl.options[i].value === value) {
+      selectEl.selectedIndex = i;
+      return;
+    }
+  }
+}
+
+function readPatternValue(data, pattern) {
+  const idx = findPattern(data, pattern);
+  if (idx === -1 || idx + pattern.length >= data.length) return null;
+  return data[idx + pattern.length];
+}
+
+function autoDetectTeamValues(data) {
+  const teamVal = readPatternValue(data, TEAM_PATTERN);
+  const playerVal = readPatternValue(data, PLAYER_PATTERN);
+  const roundVal = readPatternValue(data, ROUND_PATTERN);
+
+  setSelectIfExists(document.getElementById('team-count'), teamVal);
+  setSelectIfExists(document.getElementById('player-count'), playerVal);
+  setSelectIfExists(document.getElementById('round-count'), roundVal);
+
+  const found = [];
+  if (teamVal !== null) found.push('Teams: ' + teamVal);
+  if (playerVal !== null) found.push('Players: ' + playerVal);
+  if (roundVal !== null) found.push('Rounds: ' + roundVal);
+
+  if (found.length) {
+    showStatus(teamStatus, '🔎 Detected — ' + found.join(' | '), 'success');
+  } else {
+    showStatus(teamStatus, '⚠️ No supported patterns detected.', 'info');
+  }
+}
+
+function handleTeamFile(file) {
+  if (!file) return;
+
+  if (!file.name.toLowerCase().endsWith('.bytes')) {
+    showStatus(teamStatus, '❌ Please select a .bytes file.', 'error');
+    fileInput.value = '';
+    return;
+  }
+
+  teamFileName = file.name;
+
+  const reader = new FileReader();
+
+  reader.onload = function(e) {
+    teamFileData = new Uint8Array(e.target.result);
+
+    fileInfo.innerHTML =
+      '✅ Loaded: <b>' + escapeHtml(file.name) +
+      '</b> (' + (file.size / 1024).toFixed(1) + ' KB)';
+
+    fileInfo.classList.remove('hidden');
+    settings.classList.remove('hidden');
+
+    autoDetectTeamValues(teamFileData);
+  };
+
+  reader.onerror = function() {
+    showStatus(teamStatus, '❌ Failed to read the file.', 'error');
+  };
+
+  reader.readAsArrayBuffer(file);
+}
+
+function escapeHtml(value) {
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+function applyPattern(data, pattern, value, label, changed) {
+  const idx = findPattern(data, pattern);
+
+  if (idx === -1) return false;
+
+  const num = Number(value);
+
+  if (!Number.isInteger(num) || num < 0 || num > 255) {
+    return false;
+  }
+
+  data[idx + pattern.length] = num;
+  changed.push(label + ' → ' + num);
+  return true;
+}
+
+function downloadFile(data, filename) {
+  const blob = new Blob([data], {
+    type: 'application/octet-stream'
+  });
+
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+
+  setTimeout(function() {
+    URL.revokeObjectURL(url);
+  }, 1000);
+}
+
+function processTeamChange() {
+  if (!teamFileData) {
+    showStatus(resultStatus, '❌ No file loaded.', 'error');
+    return;
+  }
+
+  const teamVal = document.getElementById('team-count').value;
+  const playerVal = document.getElementById('player-count').value;
+  const roundVal = document.getElementById('round-count').value;
+
+  if (!teamVal || !playerVal || !roundVal) {
+    showStatus(
+      resultStatus,
+      '❌ Please select Teams, Players AND Rounds.',
+      'error'
+    );
+    return;
+  }
+
+  const data = new Uint8Array(teamFileData);
+  const changed = [];
+
+  applyPattern(data, TEAM_PATTERN, teamVal, 'Teams', changed);
+  applyPattern(data, PLAYER_PATTERN, playerVal, 'Players', changed);
+  applyPattern(data, ROUND_PATTERN, roundVal, 'Rounds', changed);
+
+  if (!changed.length) {
+    showStatus(
+      resultStatus,
+      '⚠️ No supported patterns found. Nothing was changed.',
+      'info'
+    );
+    return;
+  }
+
+  const outputName = teamFileName.replace(
+    /\.bytes$/i,
+    '_edited.bytes'
+  );
+
+  downloadFile(data, outputName);
+
+  showStatus(
+    resultStatus,
+    '✅ Applied: ' + changed.join(' | ') +
+    '<br>📥 File downloaded successfully.<br>' +
+    '🔒 Slot was not changed.',
+    'success'
+  );
+}
+
+fileInput.addEventListener('change', function() {
+  handleTeamFile(this.files[0]);
+});
+
+dropZone.addEventListener('dragover', function(e) {
+  e.preventDefault();
+});
+
+dropZone.addEventListener('drop', function(e) {
+  e.preventDefault();
+  handleTeamFile(e.dataTransfer.files[0]);
+});
+
+applyBtn.addEventListener('click', processTeamChange);
+</script>
+
+</body>
+</html>
